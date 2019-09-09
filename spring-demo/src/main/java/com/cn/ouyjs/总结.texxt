@@ -1,0 +1,154 @@
+1. 使用@ComponentScan注解扫描包的时候,自动扫描类中有@Controller/@Server/@Repository/@Component
+2.@ComponentScan(value = {"com.cn.ouyjs" },includeFilters = {
+  		/*@ComponentScan.Filter(type = FilterType.ANNOTATION, classes = Controller.class),
+  		@ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {UserService.class}),*/
+  		@ComponentScan.Filter(type = FilterType.CUSTOM, classes = {MyTypeFilter.class})
+  } ,useDefaultFilters = false)
+  @ComponentScan value:指定要扫描的包
+  excludeFilters = Filter[]:指定扫描的时候按照什么规则排除那些组件
+  includeFilters = Filter[]:指定扫描的时候只需要包含那些组件--useDefaultFilters 要关闭默认的过滤规则
+  FilterType.ANNOTATION 按照注解类型  calsses中为注解类
+  FilterType.ASSIGNABLE_TYPE :按照给定的类型 classes中为具体的某些类
+  FilterType.ASPECTJ  使用ASPECTJ表达式
+  FilterType.REGEX 使用正则表达式
+  FilterType.CUSTOM 使用自定义规则
+
+3. 	 * @Scope 调整作用域
+   	 * 默认 singleton
+   	 * singleton 单例: 对象的创建在容器中完成--ioc容器启动会调用方法创建对象放到Ioc容器中
+   	 * 					以后每次获取就是从Ioc容器(mp.get())中直接获取,容器关闭 对象将被销毁
+   	 * prototype 多例(原型):对象的创建在需要(引用/New )的时候完成--ioc容器启动并不会去调用方法创建对象放在容器中
+   	 * 					每次获取的时候才会调用方法创建对象,容器关闭 对象不会被销毁
+   	 * request 同一次请求创建一个实例(web)
+   	 * session 同一个session创建一个实例(web)
+4. 自动装配(spring 规范注解):spring 利用依赖注入(DI),完成对IOC容器中各个组件的依赖关系赋值;
+    1) @Autowired :自动注入/自动装配
+        UserServer{
+            @Autowired
+            private UserDao userDao1;
+        }
+        1.) 默认优先按照类型去容器中找对应的组件:applicationContext.getBean(UserDao.class);
+        2.) 如果找到多个相同类型的组件,再将属性的名称作为组件的Id去容器中查找
+                applicationContext.getBean("userDao");
+        3.) @Qualifier("userDao1"): 使用@Qualifier指定需要装配的组件的Id,而不是使用属性名.
+                也就是说明确指定使用哪个bean,通过指定bean的Id
+        4.) 如果容器中没有创建user这个Bean,进行自动注入,就会报错(spring自动装配默认一定是要容器中创建了该Bean,没有就会报错)
+                可以使用@Autowired(required=false),作为非必需的,在容器中没有找到对应的bean的话,不会报错,但是该bean为null
+        5.) @Primary: 让spring进行自动装配的时候,默认使用首选的bean;
+    2) spring 还支持使用@Resouce(JSR 250)和@Inject(JSR 330)[java 规范注解]
+        @Resouce:
+            可以和@Autowired一样实现自动装配;默认是按照组件的名称进行装配;
+            没有支持@Primary功能 和没有支持@Autowired(required=false);
+        @Inject:
+            需要导入javax.inject的架包,和@Autowired一样实现自动装配
+            支持@Primary功能 不支持@Autowired(required=false)
+    @Autowired:Spring定义的   @Resouce和@Inject都是Java规范
+    如果不使用spring框架,使用Java语言- ->则使用@Resouce和@Inject
+    如果不使用Java语言,使用spring框架- ->则使用@Autowired
+    建议使用@Autowired 功能更强大.
+    原理：AutowiredAnnotationBeanPostProcessor:解析完成自动装配功能--->后置处理器
+   3) @Autowired可放位置有:构造器 方法 参数 属性; 都是从容器中获取参数组件的值;
+        1.) [标注在方法上]: @Bean+方法参数; 参数从容器中获取,默认不写@Autowired效果是一样的,都是自动装配
+        2.) [标注在构造器上]: 如果组件只有一个有参构造器,这个有参构造器的@Autowired可以省略,
+                                参数位置的bean还是可以自动从容器中获取
+        3.) 放在参数位置
+   4) 自定义组件想要使用spring容器底层的一些组件(ApplicationContext,BeanFactory,xxx....);
+        自定义组件实现xxxxAware接口:在创建对象的时候,会调用接口规定的方法注入组件中,Aware;
+        把spring底层的一些组件注入到自定义的Bean中:
+            xxxAware:功能使用xxxProcessor:
+                例如自定义的bean获取Ioc容器:ApplicationContextAwareText实现ApplicationContextAware,
+                    而ApplicationContextAware的实现原理是通过ApplicationContextAwareProcessor实现;
+ 5.@Lazy 懒加载:针对单实例bean
+	  		单实例bean:默认在容器启动的时候创建对象
+	  		懒加载:容器启动不创建对象.第一次使用(获取)对象的时候创建对象,并初始化
+6.@Conditional({Condition})
+    按照一定的条件进行判断,满足条件给容器中注册Bean
+7.给容器中注册组件
+  		1).包扫描+组件标注注解(@Controller/@Service/@Component/@Repository)
+  		2).@Bean[导入的第三方包里面的组件]
+  		3).@Import[快速给容器中导入一个组件]
+ 			1).@Import(要导入到容器中的组件),容器中就会自动注册这个组件,id默认是全类名
+  			2).	ImportSelector:返回需要导入的组件的全类名数组(使用比较多)
+  			3).ImportBeanDefinitionRegistrar:手动注册Bean到容器中
+  		4).使用Spring提供的FactoryBean(工厂bean)
+  			1).默认获取的是工厂Bean调用getObject()方法创建的对象
+  			2).获取工厂bean对象本身,需要在id前面加一个&,
+  				例如:Object factoryBean = configApplicationContext.getBean("&myFactoryBean");
+8. bean的生命周期
+    		bean的创建---初始化----销毁的过程
+    	容器管理Bean的生命周期
+    	我们可以自定义初始化和销毁方法,容器在bean进行到当前生命周期的时候来调用我们自动以的初始化和销毁方法
+
+    	构造(对象创建)
+    			单实例:在容器启动的时候创建对象
+    			多实例:在每次获取对象的时候创建对象
+
+   	 beanPostProcessor.postProcessBeforeInitialization
+    	初始化
+     beanPostProcessor.postProcessAfterInitialization
+
+   	applyBeanPostProcessorsBeforeInitialization遍历得到容器中所有的BeanPostProcess;挨个执行beforeInitialization,
+   	一旦返回null,跳出for循环,不会执行beanPostProcessor.postProcessBeforeInitialization
+
+     BeanPostProcessor原理:
+     populateBean(beanName, mbd, instanceWrapper);给Bean进行属性赋值
+     初始化initializeBean{
+     applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
+     invokeInitMethods(beanName, wrappedBean, mbd);
+     applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
+     }
+
+    		1). 指定初始化和销毁方法
+    			通过@Bean指定initMethod和destoryMethod
+    		2).通过让bean实现InitializingBean(定义初始化逻辑),
+    					DisposableBean(定义销毁逻辑)
+    		3).可以使用JSR250
+    			@PostConstruct: 在bean创建完成并属性赋值完成,来执行初始化方法
+    			@PreDestroy	在容器销毁bean之前通知我们进行销毁方法
+    		4).beanPostProcessor:bean的后置处理器
+    			postProcessBeforeInitialization:在初始化之前
+    			postProcessAfterInitialization:在初始化之后
+  	Spring底层对BeanPostProcessor的使用;
+  		比如:bean赋值,注入其他组件,@Autowired,生命周期注解功能,@Async, xxxBeanPostProcessor;
+
+ 9. @PropertySource和@Value
+  @PropertySource 读取外部配置文件中的k/v 保存到运行的环境变量中;加载完外部的配置文件以后使用@Value(${})取出配置文件中的值
+  @PropertySource(value = {"/user.properties"}) /@PropertySource(value = {"classPath:/user.properties"})
+
+     使用@Value赋值:
+    1.基本数值 @Value("i am king")
+    2.可以写SpEL, #{} @Value("#{20-2}")
+    3.可以从配置文件(运行环境变量中)中读取值 ${}
+
+ 10. AOP:[动态代理]
+      		指在程序运行期间动态的将某段代码切入到指定方法指定位置进行运行的编程方式
+     @Pointcut 抽取公共的切入点表达式
+        1.本类引用直接 在注解中写入该方法
+        2.其他的切面类引用需要 copy Reference 复制引用
+    	  表达式:execution(访问权限符 返回值 方法全类名(参数列表))
+    	  		*:
+    	  			1).匹配一个或者多个字符
+    	  			2).匹配任意一个参数,
+    	  			3).只能匹配一层路径
+    	  			4).权限位置不能用*, 权限位置可不写
+    	  		..
+    	  			1).匹配任意多个参数,任意类型参数
+    	  			2).匹配任意多层路径
+      	1.导入aop模块,Spring AOP(spring-aspects)
+     	2.定义一个业务逻辑类:在业务逻辑运行的时候将日志进行打印(方法之前,方法之后,方法出现异常,xxx)
+      	3,定义一个日志切面类:切面类里面的方法需要动态感知 业务逻辑类中定义的方法(切点) 运行到哪里然后开始执行
+      		通知方法:
+      				前置通知(@Before):在目标方法运行之前运行
+      				后置通知(@After):在目标方法运行结束后运行,不管目标方法是正常运行还是异常运行后置通知都运行,原理是:finally
+      				异常通知(@AfterThrowing):在目标方法正常返回之后运行
+      				返回通知(@AfterReturning):在目标方法出现异常之后运行
+      				环绕通知(@Around):动态代理,手动推进目标方法运行(joinPoint.procced())
+      	4.给目标方法标注何时何地运行(通知注解);
+      	5.将切面类和业务逻辑类(目标方法所在的类)都加入到ioc容器中
+      	6.必须告诉ioc容器那个是切面类(在切面类上加上@Aspect注解)
+      	7.给配置类中加@EnableAspectJAutoProxy[开启基于注解的aop模式]
+
+      	三部曲:
+      		1. 将业务逻辑组件和切面类都加入到容器中,告诉spring那个是切面类(@Aspect)
+      		2. 在切面类中的每一个通知方法都标注相应的注解,告诉spring何时何地运行(切入点表达式)
+      		3. 开启基于注解的aop模式@EnableAspectJAutoProxy
